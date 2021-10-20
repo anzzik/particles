@@ -6,6 +6,7 @@ var scl_h;
 var scl_w;
 var p_map;
 var scale = 2;
+var g_id_counter = 1;
 var g_frames = 0;
 var g_prev_frames = 0;
 var g_timestamp = 0;
@@ -93,6 +94,19 @@ function p_map_get(x, y)
 	return map_row[x];
 }
 
+function p_map_set(x, y, p)
+{
+	let old_p = p_map_get(x, y);
+	if (old_p === true)
+	{
+		console.log("p_map_set: out of bounds (" + x + ", " + y + ")");
+		console.log(p);
+		return;
+	}
+
+	p_map[y][x] = p;
+}
+
 function init_p_map(map_w, map_h)
 {
 	p_map = [];
@@ -159,8 +173,32 @@ function generate_particles(x, y, n)
 		if (r_y >= scl_h)
 			r_y = scl_h - 1;
 
-		let p = new Particle(r_x, r_y);
-		p_map[r_y][r_x] = p;
+		let p = new Particle(r_x, r_y, 'salt', 300, 'salt-' + g_id_counter++);
+		p_map_set(r_x, r_y, p);
+		g_particles.push(p);
+	}
+
+	for (let i = 0; i < n / 2; i++)
+	{
+		let r_x = parseInt(Math.random() * range - (range/2));
+		let r_y = parseInt(Math.random() * range - (range/2));
+		r_x += x;
+		r_y += y;
+
+		if (r_x < 0)
+			r_x = 0;
+		if (r_y < 0)
+			r_y = 0;
+		if (r_x >= scl_w)
+			r_x = scl_w - 1;
+		if (r_y >= scl_h)
+			r_y = scl_h - 1;
+
+		if (p_map_get(r_x, r_y))
+			continue;
+
+		let p = new Particle(r_x, r_y, 'smoke', 500, 'smoke-' + g_id_counter++);
+		p_map_set(r_x, r_y, p);
 		g_particles.push(p);
 	}
 }
@@ -180,11 +218,26 @@ function draw_particles(particles)
 			if (!p)
 				continue;
 
-			if (y == scl_h - 1)
+			if (!p.ttl)
+			{
+				p_map_set(x, y, false);
+				continue;
+			}
+
+			if (p.drawn)
+				continue;
+
+			let current_pos = p.pos;
+
+			if (y == scl_h - 1 || (p.type == 'smoke' && y == 0))
 				draw_only = true;
 
-			if (p_map_get(x, y+1))
+			if (p.type == 'salt' && p_map_get(x, y+1))
 				if (p_map_get(x-1, y+1) && p_map_get(x+1, y+1))
+					draw_only = true;
+
+			if (p.type == 'smoke' && p_map_get(x, y-1))
+				if (p_map_get(x-1, y-1) && p_map_get(x+1, y-1))
 					draw_only = true;
 
 			if (draw_only)
@@ -194,15 +247,34 @@ function draw_particles(particles)
 				continue;
 			}
 
-			let g = new Vector(0, 11);
-			let current_pos = p.pos;
+			let g = null;
+			if (p.type == 'salt')
+			{
+				g = new Vector(0, 11);
+				p.apply_force(g);
+			}
 
-			p.applyForce(g);
+			if (p.type == 'smoke')
+			{
+				g = new Vector(0, -2);
+				p.vel.set(0, -2);
+			}
+
 			let new_pos = p.get_next_position();
-			if (new_pos.y >= scl_h)
-				new_pos.y = scl_h - 1;
-			let inc = parseInt((new_pos.y - current_pos.y) / Math.abs(new_pos.y - current_pos.y));
-			let next_pos = new Vector(current_pos.x, current_pos.y + inc);
+			sanitize_vector(new_pos);
+
+			let y_inc = 0;
+			let x_inc = 0;
+
+			let next_pos = new Vector(current_pos.x, current_pos.y);
+			if (new_pos.y != current_pos.y)
+				y_inc = parseInt((new_pos.y - current_pos.y) / Math.abs(new_pos.y - current_pos.y));
+
+			if (new_pos.x != current_pos.x)
+				x_inc = parseInt((new_pos.x - current_pos.x) / Math.abs(new_pos.x - current_pos.x));
+
+			let inc_v = new Vector(x_inc, y_inc);
+			next_pos.add(inc_v);
 
 			while (next_pos.y != new_pos.y)
 			{
@@ -221,26 +293,46 @@ function draw_particles(particles)
 					}
 					else
 					{
-						next_pos.set(f_x, f_y - inc);
+						if (p_map_get(f_x - x_inc, f_y - y_inc))
+							next_pos.set(current_pos.x, current_pos.y);
+						else
+							next_pos.set(f_x - x_inc, f_y - y_inc);
 					}
 
 					break;
 				}
 
-				next_pos.y += inc;
+				next_pos.add(inc_v);
 			}
 
-			let old_pos = new Vector(p.pos.x, p.pos.y);
-			p_map[old_pos.y][old_pos.x] = false;
+			sanitize_vector(next_pos);
 
-			if (next_pos.y >= h)
-				next_pos.y = scl_h - 1;
-
+			p_map_set(p.pos.x, p.pos.y, false);
 			p.pos.set(next_pos.x, next_pos.y);
-			p_map[next_pos.y][next_pos.x] = p;
+			p_map_set(next_pos.x, next_pos.y, p);
 			p.draw(ctx, scale);
 		}
 	}
+
+	reset_draw_status(g_particles);
+}
+
+function sanitize_vector(v)
+{
+	if (v.x < 0)
+		v.x = 0;
+	if (v.x >= scl_w)
+		v.x = scl_w - 1;
+	if (v.y < 0)
+		v.y = 0;
+	if (v.y >= scl_h)
+		v.y = scl_h - 1;
+}
+
+function reset_draw_status(particles)
+{
+	for (let i in particles)
+		particles[i].drawn = false;
 }
 
 function free_particles(particles, n)
