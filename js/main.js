@@ -13,6 +13,7 @@ var g_prev_frames = 0;
 var g_timestamp = 0;
 var g_fps_store = [];
 var g_avg_fps = 0;
+var g_static_particles = [];
 var m_xy = {
 	x: 0,
 	scl_x: 0,
@@ -39,6 +40,21 @@ function window_init()
 	$(canvas).mouseup(on_mouse_up);
 
 	init_p_map(scl_w, scl_h);
+
+	let m_y = parseInt(scl_h / 4);
+	let m_x = 3 * parseInt(scl_w / 4)
+
+	g_static_particles.push(generate_moon(m_x, m_y));
+	g_static_particles.push(generate_anti_moon(m_x - 5*scale, m_y));
+
+	for (let i = 0; i < 25; i++)
+	{
+		let s_x = parseInt(Math.random() * scl_w);
+		let s_y = parseInt(Math.random() * (scl_h - scale*30));
+		let p = generate_star(s_x, s_y);
+		g_static_particles.push(p);
+	}
+
 	start_loop();
 }
 
@@ -153,13 +169,58 @@ function print_debug_info()
 		$('#mouse-click-debug').text("Mouse up");
 }
 
-function generate_particles(x, y, n)
+function generate_moon(x, y)
 {
-	let range = 30;
+	let p = new Particle(x, y, 'moon', -1, 'moon-' + g_id_counter++);
+	p.radius = 15;
+
+	return p;
+}
+
+function generate_anti_moon(x, y)
+{
+	let p = new Particle(x, y, 'antimoon', -1, 'antimoon-' + g_id_counter++);
+	p.radius = 15;
+
+	return p;
+}
+
+function generate_star(x, y)
+{
+	let p = new Particle(x, y, 'star', -1, 'star-' + g_id_counter++);
+	p.radius = 1;
+
+	return p;
+}
+
+function generate_snowing(n)
+{
 	for (let i = 0; i < n; i++)
 	{
-		let r_x = parseInt(Math.random() * range - (range/2));
-		let r_y = parseInt(Math.random() * range - (range/2));
+		let r_x = parseInt(Math.random() * scl_w);
+		let r_y = 2;
+
+		if (r_x < 0)
+			r_x = 0;
+		if (r_y < 0)
+			r_y = 0;
+		if (r_x >= scl_w)
+			r_x = scl_w - 1;
+		if (r_y >= scl_h)
+			r_y = scl_h - 1;
+
+		let p = new Particle(r_x, r_y, 'snow', 3000, 'snow-' + g_id_counter++);
+		p.mass = 200;
+		p_map_set(r_x, r_y, p);
+	}
+}
+
+function generate_particles(x, y, n, range)
+{
+	for (let i = 0; i < n; i++)
+	{
+		let r_x = parseInt(Math.random() * range);
+		let r_y = parseInt(Math.random() * range);
 		r_x += x;
 		r_y += y;
 
@@ -229,7 +290,7 @@ function draw_particles()
 			if (y == scl_h - 1 || (p.type == 'smoke' && y == 0))
 				draw_only = true;
 
-			if (p.type == 'salt' && p_map_get(x, y+1))
+			if (['salt', 'snow'].indexOf(p.type) >= 0 && p_map_get(x, y+1))
 				if (p_map_get(x-1, y+1) && p_map_get(x+1, y+1))
 					draw_only = true;
 
@@ -255,6 +316,12 @@ function draw_particles()
 			{
 				g = new Vector(0, -2);
 				p.vel.set(0, -2);
+			}
+
+			if (p.type == 'snow')
+			{
+				g = new Vector(0, -2);
+				p.vel.set(0, 2);
 			}
 
 			let new_pos = p.get_next_position();
@@ -366,10 +433,16 @@ function start_loop()
 {
 	print_debug_info();
 
+	if (g_frames % 10 == 0)
+		generate_snowing(2);
+
 	if (m_xy.down)
-		generate_particles(m_xy.scl_x, m_xy.scl_y, 30)
+		generate_particles(m_xy.scl_x, m_xy.scl_y, 30, 30)
 
 	draw_particles();
+
+	for (let i in g_static_particles)
+		g_static_particles[i].draw(ctx, scale);
 
 	let now = performance.now();
 	if (g_timestamp > 0 && g_prev_frames > 0)
