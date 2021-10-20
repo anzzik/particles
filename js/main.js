@@ -8,6 +8,7 @@ var p_map;
 var scale = 2;
 var g_id_counter = 1;
 var g_frames = 0;
+var g_particle_count = 0;
 var g_prev_frames = 0;
 var g_timestamp = 0;
 var g_fps_store = [];
@@ -19,8 +20,6 @@ var m_xy = {
 	scl_y: 0,
 	down: false
 };
-
-var g_particles = [];
 
 function window_init()
 {
@@ -175,7 +174,6 @@ function generate_particles(x, y, n)
 
 		let p = new Particle(r_x, r_y, 'salt', 300, 'salt-' + g_id_counter++);
 		p_map_set(r_x, r_y, p);
-		g_particles.push(p);
 	}
 
 	for (let i = 0; i < n / 2; i++)
@@ -197,13 +195,12 @@ function generate_particles(x, y, n)
 		if (p_map_get(r_x, r_y))
 			continue;
 
-		let p = new Particle(r_x, r_y, 'smoke', 500, 'smoke-' + g_id_counter++);
+		let p = new Particle(r_x, r_y, 'smoke', 100, 'smoke-' + g_id_counter++);
 		p_map_set(r_x, r_y, p);
-		g_particles.push(p);
 	}
 }
 
-function draw_particles(particles)
+function draw_particles()
 {
 	ctx.fillStyle = "#000000";
 	ctx.fillRect(0, 0, w, h);
@@ -314,7 +311,7 @@ function draw_particles(particles)
 		}
 	}
 
-	reset_draw_status(g_particles);
+	reset_draw_status();
 }
 
 function sanitize_vector(v)
@@ -329,10 +326,27 @@ function sanitize_vector(v)
 		v.y = scl_h - 1;
 }
 
-function reset_draw_status(particles)
+function reset_draw_status()
 {
-	for (let i in particles)
-		particles[i].drawn = false;
+	g_particle_count = 0;
+	for (let y in p_map)
+	{
+		for (let x in p_map[y])
+		{
+			let p = p_map_get(x, y);
+			if (!p)
+				continue;
+
+			if (!p.ttl)
+			{
+				p_map_set(x, y, false);
+				continue;
+			}
+
+			p.drawn = false;
+			g_particle_count++;
+		}
+	}
 }
 
 function free_particles(particles, n)
@@ -355,9 +369,7 @@ function start_loop()
 	if (m_xy.down)
 		generate_particles(m_xy.scl_x, m_xy.scl_y, 30)
 
-	draw_particles(g_particles);
-	if (g_particles.length > 5000)
-		free_particles(g_particles, 50);
+	draw_particles();
 
 	let now = performance.now();
 	if (g_timestamp > 0 && g_prev_frames > 0)
@@ -377,7 +389,7 @@ function start_loop()
 		g_avg_fps = parseInt(total_fps / g_fps_store.length);
 		g_fps_store = [];
 
-		$('#particle-debug').text('Currently ' + g_particles.length + ' particles on screen');
+		$('#particle-debug').text('Currently ' + g_particle_count + ' particles on screen');
 	}
 
 	$('#fps-debug').text('Frames ' + g_frames + ' (' + parseInt(g_avg_fps) + ' avg FPS)');
