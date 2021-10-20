@@ -24,10 +24,10 @@ function Particle(x, y)
 		return new_pos;
 	};
 
-	this.draw = function(ctx)
+	this.draw = function(ctx, scale)
 	{
 		ctx.beginPath();
-		ctx.arc(this.pos.x, this.pos.y, 1, 0, 2 * Math.PI);
+		ctx.arc(this.pos.x * scale, this.pos.y * scale, 1 * scale, 0, 2 * Math.PI);
 		ctx.fillStyle = "#ffffff";
 		ctx.fill();
 	};

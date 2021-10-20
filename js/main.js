@@ -2,10 +2,20 @@ var canvas;
 var ctx;
 var h;
 var w;
+var scl_h;
+var scl_w;
 var p_map;
+var scale = 2;
+var g_frames = 0;
+var g_prev_frames = 0;
+var g_timestamp = 0;
+var g_fps_store = [];
+var g_avg_fps = 0;
 var m_xy = {
 	x: 0,
+	scl_x: 0,
 	y: 0,
+	scl_y: 0,
 	down: false
 };
 
@@ -17,6 +27,8 @@ function window_init()
 	canvas = document.getElementById('canvas');
 	w = $(canvas).attr('width');
 	h = $(canvas).attr('height');
+	scl_w = parseInt(w/scale);
+	scl_h = parseInt(h/scale);
 	ctx = canvas.getContext("2d");
 
 	$(canvas).bind('touchstart', on_touch_start);
@@ -26,7 +38,7 @@ function window_init()
 	$(canvas).mousedown(on_mouse_down);
 	$(canvas).mouseup(on_mouse_up);
 
-	init_p_map(w, h);
+	init_p_map(scl_w, scl_h);
 	start_loop();
 }
 
@@ -63,16 +75,16 @@ function on_touch_end(e)
 
 function p_map_get(x, y)
 {
-	if (y < 0 || y >= h || x < 0 || x >= w)
+	if (y < 0 || y >= scl_h || x < 0 || x >= scl_w)
 	{
 		let boundary_x = 0;
 		let boundary_y = 0;
 
-		if (x >= w)
-			boundary_x = w - 1;
+		if (x >= scl_w)
+			boundary_x = scl_w - 1;
 
-		if (y >= h)
-			boundary_y = h - 1;
+		if (y >= scl_h)
+			boundary_y = scl_h - 1;
 
 		return true;
 	}
@@ -100,6 +112,8 @@ function on_mouse_move(e)
 	let xy = getMousePos(canvas, e);
 	m_xy.x = xy.x;
 	m_xy.y = xy.y;
+	m_xy.scl_x = xy.x;
+	m_xy.scl_y = xy.y;
 }
 
 function on_mouse_down(e)
@@ -107,6 +121,8 @@ function on_mouse_down(e)
 	let xy = getMousePos(canvas, e);
 	m_xy.x = xy.x;
 	m_xy.y = xy.y;
+	m_xy.scl_x = xy.x;
+	m_xy.scl_y = xy.y;
 	m_xy.down = true;
 }
 
@@ -126,7 +142,7 @@ function print_debug_info()
 
 function generate_particles(x, y, n)
 {
-	let range = 50;
+	let range = 30;
 	for (let i = 0; i < n; i++)
 	{
 		let r_x = parseInt(Math.random() * range - (range/2));
@@ -138,10 +154,10 @@ function generate_particles(x, y, n)
 			r_x = 0;
 		if (r_y < 0)
 			r_y = 0;
-		if (r_x >= w)
-			r_x = w - 1;
-		if (r_y >= h)
-			r_y = h - 1;
+		if (r_x >= scl_w)
+			r_x = scl_w - 1;
+		if (r_y >= scl_h)
+			r_y = scl_h - 1;
 
 		let p = new Particle(r_x, r_y);
 		p_map[r_y][r_x] = p;
@@ -154,9 +170,9 @@ function draw_particles(particles)
 	ctx.fillStyle = "#000000";
 	ctx.fillRect(0, 0, w, h);
 
-	for (let y = h - 1; y >= 0; y--)
+	for (let y = scl_h - 1; y >= 0; y--)
 	{
-		for (let x = 0; x < w; x++)
+		for (let x = 0; x < scl_w; x++)
 		{
 			let draw_only = false;
 
@@ -164,7 +180,7 @@ function draw_particles(particles)
 			if (!p)
 				continue;
 
-			if (y == h - 1)
+			if (y == scl_h - 1)
 				draw_only = true;
 
 			if (p_map_get(x, y+1))
@@ -174,7 +190,7 @@ function draw_particles(particles)
 			if (draw_only)
 			{
 				p.vel.set(0, 0);
-				p.draw(ctx);
+				p.draw(ctx, scale);
 				continue;
 			}
 
@@ -183,6 +199,8 @@ function draw_particles(particles)
 
 			p.applyForce(g);
 			let new_pos = p.get_next_position();
+			if (new_pos.y >= scl_h)
+				new_pos.y = scl_h - 1;
 			let inc = parseInt((new_pos.y - current_pos.y) / Math.abs(new_pos.y - current_pos.y));
 			let next_pos = new Vector(current_pos.x, current_pos.y + inc);
 
@@ -216,11 +234,11 @@ function draw_particles(particles)
 			p_map[old_pos.y][old_pos.x] = false;
 
 			if (next_pos.y >= h)
-				next_pos.y = h - 1;
+				next_pos.y = scl_h - 1;
 
 			p.pos.set(next_pos.x, next_pos.y);
 			p_map[next_pos.y][next_pos.x] = p;
-			p.draw(ctx);
+			p.draw(ctx, scale);
 		}
 	}
 }
@@ -243,12 +261,38 @@ function start_loop()
 	print_debug_info();
 
 	if (m_xy.down)
-		generate_particles(m_xy.x, m_xy.y, 30)
+		generate_particles(m_xy.scl_x, m_xy.scl_y, 30)
 
 	draw_particles(g_particles);
 	if (g_particles.length > 5000)
 		free_particles(g_particles, 50);
 
+	let now = performance.now();
+	if (g_timestamp > 0 && g_prev_frames > 0)
+	{
+		let delta_ms = now - g_timestamp;
+		let delta_f = g_frames - g_prev_frames;
+		fps = delta_f / delta_ms * 1000;
+		g_fps_store.push(fps);
+	}
+
+	if (g_fps_store.length == 50)
+	{
+		let total_fps = g_fps_store.reduce(function(prev, current) {
+			return prev + current;
+		});
+
+		g_avg_fps = parseInt(total_fps / g_fps_store.length);
+		g_fps_store = [];
+
+		$('#particle-debug').text('Currently ' + g_particles.length + ' particles on screen');
+	}
+
+	$('#fps-debug').text('Frames ' + g_frames + ' (' + parseInt(g_avg_fps) + ' avg FPS)');
+
+	g_prev_frames = g_frames;
+	g_timestamp = now;
+	g_frames++;
 	setTimeout(start_loop, 16);
 }
 
@@ -256,8 +300,8 @@ function getMousePos(canvas, evt)
 {
 	var rect = canvas.getBoundingClientRect();
 	return {
-		x: parseInt(evt.clientX - rect.left),
-		y: parseInt(evt.clientY - rect.top)
+		x: parseInt((evt.clientX - rect.left) / scale),
+		y: parseInt((evt.clientY - rect.top) / scale)
 	};
 }
 
