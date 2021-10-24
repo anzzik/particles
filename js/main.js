@@ -261,11 +261,20 @@ function generate_particles(x, y, n, range)
 	}
 }
 
-function draw_particles()
+function draw_clear()
 {
 	ctx.fillStyle = "#000000";
 	ctx.fillRect(0, 0, w, h);
+}
 
+function draw_statics()
+{
+	for (let i in g_static_particles)
+		g_static_particles[i].draw(ctx, scale);
+}
+
+function draw_particles()
+{
 	for (let y = scl_h - 1; y >= 0; y--)
 	{
 		for (let x = 0; x < scl_w; x++)
@@ -439,10 +448,9 @@ function start_loop()
 	if (m_xy.down)
 		generate_particles(m_xy.scl_x, m_xy.scl_y, 30, 30)
 
+	draw_clear();
+	draw_statics();
 	draw_particles();
-
-	for (let i in g_static_particles)
-		g_static_particles[i].draw(ctx, scale);
 
 	let now = performance.now();
 	if (g_timestamp > 0 && g_prev_frames > 0)
