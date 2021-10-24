@@ -45,7 +45,7 @@ function window_init()
 	let m_x = 3 * parseInt(scl_w / 4)
 
 	g_static_particles.push(generate_moon(m_x, m_y));
-	g_static_particles.push(generate_anti_moon(m_x - 5*scale, m_y));
+	g_static_particles.push(generate_anti_moon(m_x - 3*scale, m_y));
 
 	for (let i = 0; i < 25; i++)
 	{
@@ -180,14 +180,14 @@ function generate_moon(x, y)
 function generate_anti_moon(x, y)
 {
 	let p = new Particle(x, y, 'antimoon', -1, 'antimoon-' + g_id_counter++);
-	p.radius = 15;
+	p.radius = 13;
 
 	return p;
 }
 
 function generate_star(x, y)
 {
-	let p = new Particle(x, y, 'star', -1, 'star-' + g_id_counter++);
+	let p = new StarParticle(x, y,  -1, g_id_counter++);
 	p.radius = 1;
 
 	return p;
@@ -209,8 +209,7 @@ function generate_snowing(n)
 		if (r_y >= scl_h)
 			r_y = scl_h - 1;
 
-		let p = new Particle(r_x, r_y, 'snow', 3000, 'snow-' + g_id_counter++);
-		p.mass = 200;
+		let p = new SnowParticle(r_x, r_y, 3000, g_id_counter++);
 		p_map_set(r_x, r_y, p);
 	}
 }
@@ -233,7 +232,7 @@ function generate_particles(x, y, n, range)
 		if (r_y >= scl_h)
 			r_y = scl_h - 1;
 
-		let p = new Particle(r_x, r_y, 'salt', 300, 'salt-' + g_id_counter++);
+		let p = new SaltParticle(r_x, r_y, 300, g_id_counter++);
 		p_map_set(r_x, r_y, p);
 	}
 
@@ -256,7 +255,7 @@ function generate_particles(x, y, n, range)
 		if (p_map_get(r_x, r_y))
 			continue;
 
-		let p = new Particle(r_x, r_y, 'smoke', 50, 'smoke-' + g_id_counter++);
+		let p = new SmokeParticle(r_x, r_y, 50, g_id_counter++);
 		p_map_set(r_x, r_y, p);
 	}
 }
