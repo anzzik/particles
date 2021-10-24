@@ -1,7 +1,6 @@
 function Particle(x, y, type, ttl, id)
 {
-	this.pos  = new Vector(x, y);
-	this.vel  = new Vector(0, 0);
+	this.pos  = new Vector(x, y); this.vel  = new Vector(0, 0);
 	this.acc  = new Vector(0, 0);
 	this.ttl  = ttl;
 	this.rendercount = 0;
@@ -58,7 +57,21 @@ function Particle(x, y, type, ttl, id)
 				ctx.fillStyle = "#ffffff";
 				break;
 			case 'smoke':
-				ctx.fillStyle = "#999999";
+				let brightness = 183;
+				let dim_limit = 50;
+				let dim = 0;
+
+				if (this.ttl < dim_limit)
+				{
+					dim = (dim_limit - this.ttl) * parseInt(brightness / dim_limit);
+					if (dim > brightness)
+						dim = brightness;
+				}
+
+				let r = brightness - dim;
+				let g = brightness - dim;
+				let b = brightness - dim;
+				ctx.fillStyle = `rgb(${r}, ${b}, ${g})`;
 				break;
 			case 'moon':
 				ctx.fillStyle = "#ffff00";
@@ -67,9 +80,9 @@ function Particle(x, y, type, ttl, id)
 				ctx.fillStyle = "#000000";
 				break;
 			case 'star':
-				let r = parseInt(Math.random() * 100);
+				let rnd = parseInt(Math.random() * 100);
 				ctx.fillStyle = "#ffffff";
-				if ([0, 1, 2, 3, 4, 5, 6].indexOf((this.rendercount + r) % 20) >= 0)
+				if ([0, 1, 2, 3, 4, 5, 6].indexOf((this.rendercount + rnd) % 20) >= 0)
 					ctx.fillStyle = "#ffff00";
 
 				break;

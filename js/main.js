@@ -256,7 +256,7 @@ function generate_particles(x, y, n, range)
 		if (p_map_get(r_x, r_y))
 			continue;
 
-		let p = new Particle(r_x, r_y, 'smoke', 100, 'smoke-' + g_id_counter++);
+		let p = new Particle(r_x, r_y, 'smoke', 50, 'smoke-' + g_id_counter++);
 		p_map_set(r_x, r_y, p);
 	}
 }
